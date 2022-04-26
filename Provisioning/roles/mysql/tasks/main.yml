@@ -1,0 +1,26 @@
+---
+#install all nesessary software
+- name: Make sure we can connect
+  ping:
+- name: Update freshly installed system
+  apt: 
+    update_cache: yes 
+    cache_valid_time: 3600
+- name: Install MySQL
+  apt:
+    pkg:
+    - pip
+    - python 
+    - mysql-server
+    - mysql-client
+    - python3-pip
+    - python-setuptools
+- name: install PyMYSQL 
+  pip:
+    name: setuptools
+    state: present
+- name: install PyMYSQL 
+  pip:
+    name: pymysql
+    state: present
+- include_tasks: mysql_secure_installation.yml

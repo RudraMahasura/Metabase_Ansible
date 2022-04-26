@@ -1,61 +1,9 @@
 ---
-- hosts: metabase
+- hosts: all
   become: true
-  tasks:
-    - name: Make sure we can connect
-      ping:
-    - name: Update freshly installed system
-      apt: 
-        update_cache: yes 
-        cache_valid_time: 3600
-# Install Java
-    - name: install required packages
-      apt: name ={{item}} state=present
-      with_items: 
-        - pip
-        - python        
-# Install MySQL
-    - name: Install MySQL
-      apt:
-        pkg: 
-        - mysql-server
-        - mysql-client
-# mysql_secure_installation
-    - name: Install PIP
-      apt: 
-        name: python3-pip
-        state: present
-    - name: install PyMYSQL 
-      pip:
-        name: pymysql
-        state: present
-    - name: Generate new root password   
-      command: openssl rand -hex 7  creates=/root/.my.cnf  
-      register: mysql_new_root_pass
-    - name: Create my_cnf    
-      template: 
-        src: templates/mysql/my.cnf 
-        dest: /root/.my.cnf 
-      when: mysql_new_root_pass.changed
-    - name: Output new root password
-      debug: msg={{mysql_new_root_pass.stdout}}
-    - name: Update root password
-      shell: mysql -u root -NBe 'ALTER USER "root"@"localhost" IDENTIFIED WITH mysql_native_password BY "{{ mysql_new_root_pass.stdout}}"; FLUSH PRIVILEGES;'
-      when: mysql_new_root_pass.changed
-    - name: Remove anonymous users
-      mysql_user:
-        login_unix_socket: /var/run/mysqld/mysqld.sock 
-        name: "" 
-        state: absent 
-      when: mysql_new_root_pass.changed
-    - name: Remove test database   
-      mysql_db: 
-        name: test 
-        state: absent 
-      when: mysql_new_root_pass.changed  
-
-      
-
+  roles:
+    - mysql
+  tasks:      
 # Create Database
     - name: Create Database for Metabase
       mysql_db:
