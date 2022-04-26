@@ -1,0 +1,90 @@
+---
+- name: Check if Database Exists
+  mysql_db:
+    name: metabase
+    state: present
+  register: database_exists 
+- name: Create Database for Metabase
+  mysql_db:
+    check_implicit_admin: yes 
+    name: metabase 
+    state: present
+  when: database_exists.changed 
+- name: Create user for Metabase
+  mysql_user:
+    name: metabase
+    password: metabase
+    priv: 'metabase.*:ALL'
+  when: database_exists.changed
+# Download Metabase and copy it to working directory
+- name: Check that Metabase exists
+  stat:
+    path: /tmp/metabase.jar
+  register: distrib_exists
+- name: Download Distrib    
+  get_url:
+    url: https://downloads.metabase.com/v0.42.3/metabase.jar
+    dest: /tmp/metabase.jar
+  when: not distrib_exists.stat.exists
+- name: Create Directory for Metabase
+  file: 
+    path: /apps/java
+    state: directory
+    mode: 0755
+- name: Check if distrib is in working directory
+  stat:
+    path: /apps/java/metabase.jar
+  register: distrib_in_place
+- name: Copy distrib to created directory
+  shell: cp /tmp/metabase.jar /apps/java/metabase.jar
+  when: not distrib_in_place.stat.exists
+# Setting up Metabase
+- name: Installing Java
+  apt:
+    pkg:
+    - default-jre
+    - openjdk-8-jre
+    - default-jdk
+- name: Add a group for Metabase
+  group:
+    name: appmgr
+    state: present
+- name: Add user
+  user:
+    name: appmgr
+    shell: /bin/false
+    groups: appmgr
+    #- name: Change file ownership, group and permissions
+    #  file:
+    #    path: /apps/java
+    #    owner: appmgr
+    #    group: appmgr
+    #    mode: '0755'
+- name: Create Service Unit File
+  template: 
+    src: metabase 
+    dest: /etc/systemd/system/metabase.service
+- name: Create Metabase Environment file
+  template: 
+    src: metabase.conf
+    dest: /etc/default/metabase.conf   
+- name: Copy MySQL dump for importing
+  copy: src=files/metabase.sql dest=/tmp/metabase.sql
+- name: Import dump
+  mysql_db: target=/tmp/metabase.sql state=import name=all
+- name: Copy settings database 1
+  template: 
+    src: metabase.db.mv.db
+    dest: /apps/java/metabase.db.mv.db
+- name: Copy settings database 1
+  template: 
+    src: metabase.db.trace.db
+    dest: /apps/java/metabase.db.trace.db
+    #- name: Fix Permissions
+    #  file: 
+    #    path: /apps/java
+    #    owner: root
+    #    group: root
+    #    mode: 0777 
+    #    state: directory 
+    #    recurse: yes

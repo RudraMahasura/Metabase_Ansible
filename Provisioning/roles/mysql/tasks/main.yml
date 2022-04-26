@@ -9,8 +9,7 @@
 - name: Install MySQL
   apt:
     pkg:
-    - pip
-    - python 
+    - python3 
     - mysql-server
     - mysql-client
     - python3-pip

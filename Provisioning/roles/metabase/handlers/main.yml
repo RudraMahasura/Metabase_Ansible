@@ -1,0 +1,10 @@
+---
+- name: Daemon-reload 
+  systemd:
+    daemon_reload: yes
+- name: Enable and start Metabase as a service
+  systemd: 
+    name: metabase.service
+    enabled: yes
+    masked: no
+    state: started
