@@ -1,0 +1,154 @@
+---
+- hosts: metabase
+  become: true
+  tasks:
+    - name: Make sure we can connect
+      ping:
+    - name: Update freshly installed system
+      apt: 
+        update_cache: yes 
+        cache_valid_time: 3600
+# Install Java
+    - name: install required packages
+      apt: name ={{item}} state=present
+      with_items: 
+        - pip
+        - python        
+# Install MySQL
+    - name: Install MySQL
+      apt:
+        pkg: 
+        - mysql-server
+        - mysql-client
+# mysql_secure_installation
+    - name: Install PIP
+      apt: 
+        name: python3-pip
+        state: present
+    - name: install PyMYSQL 
+      pip:
+        name: pymysql
+        state: present
+    - name: Generate new root password   
+      command: openssl rand -hex 7  creates=/root/.my.cnf  
+      register: mysql_new_root_pass
+    - name: Create my_cnf    
+      template: 
+        src: templates/mysql/my.cnf 
+        dest: /root/.my.cnf 
+      when: mysql_new_root_pass.changed
+    - name: Output new root password
+      debug: msg={{mysql_new_root_pass.stdout}}
+    - name: Update root password
+      shell: mysql -u root -NBe 'ALTER USER "root"@"localhost" IDENTIFIED WITH mysql_native_password BY "{{ mysql_new_root_pass.stdout}}"; FLUSH PRIVILEGES;'
+      when: mysql_new_root_pass.changed
+    - name: Remove anonymous users
+      mysql_user:
+        login_unix_socket: /var/run/mysqld/mysqld.sock 
+        name: "" 
+        state: absent 
+      when: mysql_new_root_pass.changed
+    - name: Remove test database   
+      mysql_db: 
+        name: test 
+        state: absent 
+      when: mysql_new_root_pass.changed  
+
+      
+
+# Create Database
+    - name: Create Database for Metabase
+      mysql_db:
+        check_implicit_admin: yes 
+        name: metabase 
+        state: present 
+       # login_user: root 
+        #login_password: "{{ mysql_new_root_pass }}"
+    - name: Create user for Metabase
+      mysql_user:
+        name: metabase
+        password: metabase
+        priv: 'metabase.*:ALL'
+# Download Metabase
+    - name: Download Distrib    
+      get_url:
+        url: https://downloads.metabase.com/v0.42.3/metabase.jar
+        dest: /tmp/metabase.jar
+    - name: Create Directory for Metabase
+      file: 
+        path: /apps/java
+        state: directory
+        mode: 0755
+    - name: Copy distrib to created directory
+      shell: cp /tmp/metabase.jar /apps/java/metabase.jar
+# Setting up Metabase
+    - name: Java1
+      apt: 
+        name: default-jre
+        state: present
+    - name: Java2
+      apt: 
+        name: openjdk-8-jre
+        state: present
+    - name: Java3
+      apt: 
+        name: default-jdk
+        state: present
+    #- name: Java4
+    #  apt: 
+    #    name: openjdk-7-jre
+    #    state: present
+    #- name: run Java application
+    #  shell: java -jar /apps/java/metabase.jar
+    - name: Add a group for Metabase
+      group:
+        name: appmgr
+        state: present
+    - name: Add user
+      user:
+        name: appmgr
+        shell: /bin/false
+        groups: appmgr
+    - name: Change file ownership, group and permissions
+      file:
+        path: /apps/java
+        owner: appmgr
+        group: appmgr
+        mode: '0755'
+    - name: Create Service Unit File
+      template: 
+        src: templates/metabase/metabase 
+        dest: /etc/systemd/system/metabase.service
+    - name: Create Metabase Environment file
+      template: 
+        src: templates/metabase/metabase.conf
+        dest: /etc/default/metabase.conf
+    - name: Daemon-reload 
+      systemd:
+        daemon_reload: yes
+    - name: Copy MetabaseDB
+      copy: src=files/metabase.sql dest=/tmp/metabase.sql
+    - name: Import dump
+      mysql_db: target=/tmp/metabase.sql state=import name=all
+    - name: Create Service Unit File
+      template: 
+        src: files/metabase.db.mv.db
+        dest: /apps/java/metabase.db.mv.db
+    - name: Create Service Unit File
+      template: 
+        src: files/metabase.db.trace.db
+        dest: /apps/java/metabase.db.trace.db
+    - name: Fix Permissions
+      file: 
+        path: /apps/java
+        owner: root
+        group: root
+        mode: 0777 
+        state: directory 
+        recurse: yes
+    - name: Enable and start Metabase as a service
+      systemd: 
+        name: metabase.service
+        enabled: yes
+        masked: no
+        state: started
