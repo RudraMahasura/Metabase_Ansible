@@ -1,4 +1,5 @@
 ---
+# Creating Database for metabase
 - name: Check if Database Exists
   mysql_db:
     name: metabase
@@ -54,12 +55,6 @@
     name: appmgr
     shell: /bin/false
     groups: appmgr
-    #- name: Change file ownership, group and permissions
-    #  file:
-    #    path: /apps/java
-    #    owner: appmgr
-    #    group: appmgr
-    #    mode: '0755'
 - name: Create Service Unit File
   template: 
     src: metabase 
@@ -76,15 +71,7 @@
   template: 
     src: metabase.db.mv.db
     dest: /apps/java/metabase.db.mv.db
-- name: Copy settings database 1
+- name: Copy settings database 2
   template: 
     src: metabase.db.trace.db
     dest: /apps/java/metabase.db.trace.db
-    #- name: Fix Permissions
-    #  file: 
-    #    path: /apps/java
-    #    owner: root
-    #    group: root
-    #    mode: 0777 
-    #    state: directory 
-    #    recurse: yes

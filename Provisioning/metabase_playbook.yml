@@ -1,0 +1,13 @@
+---
+- hosts: all
+  become: true
+  roles:
+  # Installing MySQL 
+    - mysql
+  # Installing Metabase, Importing dump and writing a service file
+    - metabase
+  # Restarting systemctl and starting Metabase as a service
+  post_tasks:
+  - include: roles/metabase/handlers/main.yml
+    static: yes
+
